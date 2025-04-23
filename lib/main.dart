@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';  // Pour la conversion des données en JSON
 
 void main() {
   runApp(const MyApp());
@@ -10,12 +12,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Formulaire Flutter',
+      title: 'Formulaire de Demande de Congé',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyFormPage(title: 'Mon Formulaire'),
+      home: const MyFormPage(title: 'Demande de Congé'),
     );
   }
 }
@@ -36,37 +38,55 @@ class _MyFormPageState extends State<MyFormPage> {
   // Contrôleurs pour les champs de texte
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _startDateController = TextEditingController();
+  final TextEditingController _endDateController = TextEditingController();
 
-  // Variable pour le bouton radio
-  String _gender = 'male';
+  // Variable pour le type de congé
+  String _leaveType = 'vacation';
 
-  // Variable pour la case à cocher
-  bool _agreeToTerms = false;
+  // Méthode pour envoyer la demande de congé à l'API
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      // Créez un objet JSON avec les données du formulaire
+      Map<String, dynamic> formData = {
+        'username': _nameController.text,
+        'email': _emailController.text,
+        'startDate': _startDateController.text,
+        'endDate': _endDateController.text,
+        'leaveType': _leaveType,
+      };
+
+      // Envoi de la requête HTTP POST à l'API Spring Boot
+      final response = await http.post(
+        Uri.parse('http://votre-backend-api-url/demande-conge'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(formData),
+      );
+
+      if (response.statusCode == 200) {
+        // Si la requête a réussi
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Demande de congé envoyée avec succès!')),
+        );
+      } else {
+        // Si la requête a échoué
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de l\'envoi de la demande')),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
     // Nettoyer les contrôleurs quand le widget est supprimé
     _nameController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
     super.dispose();
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // Si le formulaire est valide, afficher les données dans la console
-      print('Nom: ${_nameController.text}');
-      print('Email: ${_emailController.text}');
-      print('Mot de passe: ${_passwordController.text}');
-      print('Genre: $_gender');
-      print('Accepté les termes: $_agreeToTerms');
-
-      // Afficher un message de succès
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Formulaire soumis avec succès!')),
-      );
-    }
   }
 
   @override
@@ -119,75 +139,65 @@ class _MyFormPageState extends State<MyFormPage> {
               ),
               const SizedBox(height: 16),
 
-              // Champ Mot de passe
+              // Champ Date de début
               TextFormField(
-                controller: _passwordController,
+                controller: _startDateController,
                 decoration: const InputDecoration(
-                  labelText: 'Mot de passe',
-                  hintText: 'Entrez votre mot de passe',
-                  prefixIcon: Icon(Icons.lock),
+                  labelText: 'Date de début',
+                  hintText: 'Entrez la date de début',
+                  prefixIcon: Icon(Icons.calendar_today),
                 ),
-                obscureText: true,
+                keyboardType: TextInputType.datetime,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un mot de passe';
-                  }
-                  if (value.length < 6) {
-                    return 'Le mot de passe doit avoir au moins 6 caractères';
+                    return 'Veuillez entrer une date de début';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // Boutons Radio pour le genre
-              const Text('Genre:'),
-              Row(
-                children: [
-                  Radio<String>(
-                    value: 'male',
-                    groupValue: _gender,
-                    onChanged: (value) {
-                      setState(() {
-                        _gender = value!;
-                      });
-                    },
-                  ),
-                  const Text('Homme'),
-                  Radio<String>(
-                    value: 'female',
-                    groupValue: _gender,
-                    onChanged: (value) {
-                      setState(() {
-                        _gender = value!;
-                      });
-                    },
-                  ),
-                  const Text('Femme'),
-                ],
+              // Champ Date de fin
+              TextFormField(
+                controller: _endDateController,
+                decoration: const InputDecoration(
+                  labelText: 'Date de fin',
+                  hintText: 'Entrez la date de fin',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                keyboardType: TextInputType.datetime,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer une date de fin';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
-              // Case à cocher pour les conditions
-              Row(
-                children: [
-                  Checkbox(
-                    value: _agreeToTerms,
-                    onChanged: (value) {
-                      setState(() {
-                        _agreeToTerms = value!;
-                      });
-                    },
-                  ),
-                  const Text('J\'accepte les termes et conditions'),
-                ],
+              // Sélection du type de congé
+              const Text('Type de congé:'),
+              DropdownButton<String>(
+                value: _leaveType,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _leaveType = newValue!;
+                  });
+                },
+                items: <String>['vacation', 'sick', 'maternity']
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 24),
 
               // Bouton de soumission
               ElevatedButton(
                 onPressed: _submitForm,
-                child: const Text('Soumettre'),
+                child: const Text('Envoyer la demande'),
               ),
             ],
           ),
